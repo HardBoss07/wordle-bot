@@ -1,6 +1,6 @@
 [package]
 name = "wordle-bot"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2021"
 description = "Full CLI Implementation of the popular game Wordle with an included Solver"
 repository = "https://github.com/HardBoss07/wordle-bot"
@@ -25,3 +25,10 @@ serde_json = "1.0"
 anyhow = "1.0"
 regex = "1.11"
 rand = "0.9.2"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
