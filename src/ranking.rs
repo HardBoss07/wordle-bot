@@ -7,16 +7,20 @@ pub fn rank_words<'a>(words: &[&'a str], stats_json: &str) -> Result<Vec<(String
     let stats: LetterStats = serde_json::from_str(stats_json)?;
 
     // === Adjustable weight parameters ===
-    let w_pos = 0.2;      // weight for positional frequency
-    let w_overall = 0.1;  // weight for overall frequency
-    let w_unique = 0.7;   // weight for letter uniqueness
+    let w_pos = 0.2; // weight for positional frequency
+    let w_overall = 0.1; // weight for overall frequency
+    let w_unique = 0.7; // weight for letter uniqueness
 
     weighted_rank(words, stats_json, (w_pos, w_overall, w_unique))
 }
 
-pub fn weighted_rank<'a>(words: &[&'a str], stats_json: &str, weights: (f64, f64, f64)) -> Result<Vec<(String, f64)>> {
+pub fn weighted_rank<'a>(
+    words: &[&'a str],
+    stats_json: &str,
+    weights: (f64, f64, f64),
+) -> Result<Vec<(String, f64)>> {
     let (w_pos, w_overall, w_unique) = weights;
-        let stats: LetterStats = serde_json::from_str(stats_json)?;
+    let stats: LetterStats = serde_json::from_str(stats_json)?;
 
     // === Compute positional totals ===
     let mut totals = [0.0; 5];
@@ -79,8 +83,7 @@ pub fn weighted_rank<'a>(words: &[&'a str], stats_json: &str, weights: (f64, f64
         let uniqueness = unique_letters.len() as f64 / 5.0; // 0.2–1.0 range
 
         // === Weighted blend ===
-        let blended_score =
-            w_pos * score_pos + w_overall * score_overall + w_unique * uniqueness;
+        let blended_score = w_pos * score_pos + w_overall * score_overall + w_unique * uniqueness;
 
         scores.push((word.to_string(), blended_score));
     }

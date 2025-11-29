@@ -1,15 +1,15 @@
 mod analysis;
-mod ranking;
-mod solver;
 mod filter;
 mod game;
 mod play;
+mod ranking;
+mod solver;
 
-use anyhow::Result;
-use std::fs;
 use analysis::LetterStats;
-use solver::Solver;
+use anyhow::Result;
 use play::Play;
+use solver::Solver;
+use std::fs;
 
 // TODO: Add simulate mode which plays game to caculate average number of guesses
 
@@ -60,10 +60,7 @@ fn analyze() -> Result<()> {
     let re = regex::Regex::new(r"\[\s*((?:\d+,\s*)*\d+)\s*\]").unwrap();
     json = re
         .replace_all(&json, |caps: &regex::Captures| {
-            let inner = caps[1]
-                .split_whitespace()
-                .collect::<Vec<_>>()
-                .join(" ");
+            let inner = caps[1].split_whitespace().collect::<Vec<_>>().join(" ");
             format!("[{}]", inner.replace(", ", ", "))
         })
         .to_string();

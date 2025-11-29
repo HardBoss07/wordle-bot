@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use crate::game::GameData;
+use std::collections::HashSet;
 
 pub struct Filter<'a> {
     game: &'a GameData,

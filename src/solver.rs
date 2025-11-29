@@ -1,10 +1,10 @@
-use std::io::{self, Write};
-use anyhow::Result;
-use std::fs;
-use anyhow::anyhow;
-use crate::ranking::weighted_rank;
 use crate::filter::Filter;
 use crate::game::GameData;
+use crate::ranking::weighted_rank;
+use anyhow::anyhow;
+use anyhow::Result;
+use std::fs;
+use std::io::{self, Write};
 
 pub struct Solver {
     game: GameData,
@@ -29,8 +29,8 @@ impl Solver {
 
         Ok(Self {
             game: GameData::new(),
-            current_words: words.clone(),   // filtered, may shrink during filtering
-            all_words: words,               // full list stays available for checking
+            current_words: words.clone(), // filtered, may shrink during filtering
+            all_words: words,             // full list stays available for checking
         })
     }
 
@@ -89,7 +89,10 @@ impl Solver {
             // Break if Game Won
             if self.is_game_won() {
                 let word = self.get_solved_word().unwrap();
-                println!("Congratulations! You've solved the puzzle! The word is '{}'.", word);
+                println!(
+                    "Congratulations! You've solved the puzzle! The word is '{}'.",
+                    word
+                );
                 break;
             }
 

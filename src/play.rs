@@ -1,10 +1,10 @@
-use std::fs;
+use crate::game::{CellData, GameData, LineData};
+use anyhow::Result;
+use rand::prelude::IndexedRandom;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use rand::prelude::IndexedRandom;
-use crate::game::{GameData, CellData, LineData};
 use std::collections::HashMap;
-use anyhow::Result;
+use std::fs;
 use std::io;
 
 pub struct Play {
@@ -24,8 +24,7 @@ pub enum GameResult {
 
 impl Play {
     pub fn new() -> Self {
-        let content = fs::read_to_string("wordlist.txt")
-            .expect("Failed to read wordlist.txt");
+        let content = fs::read_to_string("wordlist.txt").expect("Failed to read wordlist.txt");
 
         let words: Vec<String> = content
             .lines()
@@ -55,11 +54,26 @@ impl Play {
         let target_chars: Vec<char> = self.word.chars().collect();
 
         let mut result_cells: [CellData; 5] = [
-            CellData { letter: ' ', state: 'w' },
-            CellData { letter: ' ', state: 'w' },
-            CellData { letter: ' ', state: 'w' },
-            CellData { letter: ' ', state: 'w' },
-            CellData { letter: ' ', state: 'w' },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
         ];
 
         // Count remaining letters in target for handling duplicates
@@ -74,7 +88,10 @@ impl Play {
             let t = target_chars[i];
 
             if g == t {
-                result_cells[i] = CellData { letter: g, state: 'c' };
+                result_cells[i] = CellData {
+                    letter: g,
+                    state: 'c',
+                };
                 *remaining_counts.get_mut(&g).unwrap() -= 1;
             } else {
                 result_cells[i].letter = g;
@@ -153,7 +170,8 @@ impl Play {
             }
 
             // Remove all whitespace and lowercase
-            let cleaned: String = input.chars()
+            let cleaned: String = input
+                .chars()
                 .filter(|c| !c.is_whitespace())
                 .collect::<String>()
                 .to_lowercase();
