@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: wordle-bot <analyze|rank|solve>");
+        eprintln!("Usage: wordle-bot <solve|play|analyze|rank>");
         std::process::exit(1);
     }
 
