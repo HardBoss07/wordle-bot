@@ -67,10 +67,18 @@ impl GameData {
     pub fn print_summary(&self) {
         println!("\n=== Current Game State ===");
         println!("Guesses: {}", self.lines.len());
-        println!("Not in word: {:?}", self.contains_not);
-        println!("Correct positions: {:?}", self.correct_positions);
-        println!("Misplaced letters: {:?}", self.misplaced_letters);
-        println!("Must contain: {:?}", self.must_contain);
+
+        println!("Not in word: {}", fmt_hashset(&self.contains_not));
+        println!(
+            "Correct positions: {}",
+            fmt_correct_positions(&self.correct_positions)
+        );
+        println!(
+            "Misplaced letters: {}",
+            fmt_misplaced_letters(&self.misplaced_letters)
+        );
+        println!("Must contain: {}", fmt_hashset(&self.must_contain));
+
         println!("==========================\n");
     }
 
@@ -81,4 +89,44 @@ impl GameData {
         self.misplaced_letters.clear();
         self.must_contain.clear();
     }
+}
+
+// Formatting helper functions
+
+fn fmt_hashset(set: &HashSet<char>) -> String {
+    set.iter()
+        .map(|&c| c.to_uppercase().to_string())
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+fn fmt_correct_positions(positions: &[Option<char>; 5]) -> String {
+    positions
+        .iter()
+        .map(|&opt| {
+            opt.map(|c| c.to_uppercase().to_string())
+                .unwrap_or_else(|| "_".to_string())
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+fn fmt_misplaced_letters(map: &HashMap<usize, HashSet<char>>) -> String {
+    let mut parts = Vec::new();
+
+    for i in 0..5 {
+        if let Some(set) = map.get(&i) {
+            if !set.is_empty() {
+                let letters: String = set
+                    .iter()
+                    .map(|c| c.to_uppercase().to_string())
+                    .collect::<Vec<String>>()
+                    .join("");
+
+                parts.push(format!("{}: {}", i, letters));
+            }
+        }
+    }
+
+    parts.join(", ")
 }
