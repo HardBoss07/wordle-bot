@@ -11,7 +11,7 @@ use play::Play;
 use solver::Solver;
 use std::fs;
 
-// TODO: Add simulate mode which plays game to caculate average number of guesses
+// TODO: Add simulate mode which plays game to calculate average number of guesses
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
