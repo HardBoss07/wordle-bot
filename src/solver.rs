@@ -57,6 +57,13 @@ impl Solver {
                 println!("Exiting solver.");
                 break;
             }
+
+            if word == "-r" {
+                self.reset();
+                println!("Solver has been reset.\n");
+                continue; // skip the rest of the loop entirely
+            }
+
             if word.len() != 5 {
                 println!("Please enter a 5-letter word.\n");
                 continue;
@@ -154,5 +161,10 @@ impl Solver {
         } else {
             None
         }
+    }
+
+    fn reset(&mut self) {
+        self.game.reset();
+        self.current_words = self.all_words.clone();
     }
 }
