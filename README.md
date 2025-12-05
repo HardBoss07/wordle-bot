@@ -157,4 +157,4 @@ src/
 
 ## License
 
-AGPL-3.0 (see [LICENSE]([LICENSE](https://github.com/HardBoss07/wordle-bot/blob/main/LICENSE))) 
+AGPL-3.0 (see [LICENSE](https://github.com/HardBoss07/wordle-bot/blob/main/LICENSE))
