@@ -1,15 +1,16 @@
 use crate::filter::Filter;
-use crate::game::GameData;
-use crate::ranking::weighted_rank;
+use crate::game::{CellData, GameData, LineData}; // CellData and LineData for simulation helpers
+use crate::ranking::{rank_words, weighted_rank};
 use anyhow::anyhow;
 use anyhow::Result;
+use std::collections::HashMap;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Write}; // Required for word evaluation in simulate
 
 pub struct Solver {
     game: GameData,
     current_words: Vec<String>,
-    all_words: Vec<String>,
+    pub all_words: Vec<String>, // Made public for use in simulation
 }
 
 impl Solver {
@@ -98,13 +99,159 @@ impl Solver {
             // Update suggestions
             let stats_json = fs::read_to_string("letter_stats.json")
                 .map_err(|e| anyhow!("Failed to read letter_stats.json: {}", e))?;
-            self.rank_words(&stats_json)?;
+            self.rank_words(&stats_json, true)?;
         }
 
         Ok(())
     }
 
-    pub fn rank_words(&mut self, stats_json: &str) -> Result<()> {
+    pub fn simulate(
+        &self,
+        target_word: String,
+        stats_json: &str,
+        config_json: &str,
+    ) -> Result<usize> {
+        let mut temp_solver = Solver {
+            game: GameData::new(),
+            current_words: self.all_words.clone(),
+            all_words: self.all_words.clone(),
+        };
+        let mut guesses = 0;
+        let max_guesses = 6;
+
+        let weights: Vec<(f64, f64, f64)> = serde_json::from_str(config_json)
+            .map_err(|e| anyhow!("Failed to parse solver_config.json: {}", e))?;
+
+        while guesses < max_guesses {
+            let attempt = temp_solver.game.lines.len().min(weights.len() - 1);
+            let weight_tuple = weights[attempt];
+
+            let guess_word = if guesses == 0 {
+                temp_solver.get_top_suggestion_silent(stats_json, None)?
+            } else {
+                // Filter first, then use weighted ranking
+                temp_solver.current_words = temp_solver.update_wordlist();
+                temp_solver.get_top_suggestion_silent(stats_json, Some(weight_tuple))?
+            };
+
+            guesses += 1;
+
+            // Win condition check
+            if guess_word == target_word {
+                return Ok(guesses);
+            }
+
+            // Safety check: this should only happen if the filtering failed somehow.
+            if guess_word.len() != 5 || !temp_solver.all_words.contains(&guess_word) {
+                return Ok(max_guesses + 1); // Indicate failure/loss
+            }
+
+            // Evaluate the guess against the target word
+            let line = Self::evaluate_word(&guess_word, &target_word);
+            let pattern = Self::get_pattern(&line);
+
+            // Update game state
+            temp_solver.game.add_line(&guess_word, &pattern);
+        }
+
+        Ok(max_guesses + 1) // Lost
+    }
+
+    fn evaluate_word(guessed_word: &str, target_word: &str) -> LineData {
+        let guessed_chars: Vec<char> = guessed_word.chars().collect();
+        let target_chars: Vec<char> = target_word.chars().collect();
+
+        let mut result_cells: [CellData; 5] = [
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+            CellData {
+                letter: ' ',
+                state: 'w',
+            },
+        ];
+
+        let mut remaining_counts: HashMap<char, usize> = HashMap::new();
+        for &c in &target_chars {
+            *remaining_counts.entry(c).or_insert(0) += 1;
+        }
+
+        for i in 0..5 {
+            let g = guessed_chars[i];
+            let t = target_chars[i];
+
+            if g == t {
+                result_cells[i] = CellData {
+                    letter: g,
+                    state: 'c',
+                };
+                *remaining_counts.get_mut(&g).unwrap() -= 1;
+            } else {
+                result_cells[i].letter = g;
+            }
+        }
+
+        for i in 0..5 {
+            if result_cells[i].state == 'c' {
+                continue;
+            }
+            let g = guessed_chars[i];
+            if let Some(count) = remaining_counts.get_mut(&g) {
+                if *count > 0 {
+                    result_cells[i].state = 'm';
+                    *count -= 1;
+                } else {
+                    result_cells[i].state = 'w';
+                }
+            } else {
+                result_cells[i].state = 'w';
+            }
+        }
+
+        LineData {
+            word: guessed_word.to_string(),
+            cells: result_cells,
+        }
+    }
+
+    fn get_pattern(line: &LineData) -> String {
+        line.cells.iter().map(|cell| cell.state).collect()
+    }
+
+    fn get_top_suggestion_silent(
+        &self,
+        stats_json: &str,
+        weights: Option<(f64, f64, f64)>,
+    ) -> Result<String> {
+        let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
+
+        let ranked_words = if let Some(weight_tuple) = weights {
+            weighted_rank(&word_refs, stats_json, weight_tuple)?
+        } else {
+            rank_words(&word_refs, stats_json)?
+        };
+
+        ranked_words
+            .into_iter()
+            .next()
+            .map(|(word, _)| word)
+            .ok_or_else(|| anyhow!("No suggested words remaining"))
+    }
+
+    pub fn rank_words(&mut self, stats_json: &str, print_output: bool) -> Result<()> {
         // Read solver_config.json as Vec of tuples
         let config_content = fs::read_to_string("solver_config.json")
             .map_err(|e| anyhow!("Failed to read solver_config.json: {}", e))?;
@@ -123,11 +270,13 @@ impl Solver {
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
         let ranked_words = weighted_rank(&word_refs, stats_json, weight_tuple)?;
 
-        println!("Top suggested words:");
-        for (word, score) in ranked_words.iter().take(10) {
-            println!("{word:<10} {score:.5}");
+        if print_output {
+            println!("Top suggested words:");
+            for (word, score) in ranked_words.iter().take(10) {
+                println!("{word:<10} {score:.5}");
+            }
+            println!("Total Words Left: {}\n", self.current_words.len());
         }
-        println!("Total Words Left: {}\n", self.current_words.len());
 
         Ok(())
     }
@@ -155,10 +304,11 @@ impl Solver {
         }
     }
 
-    fn reset(&mut self) {
+    fn reset(&mut self) -> Result<()> {
         self.game.reset();
         self.current_words = self.all_words.clone();
         self.print_initial_suggestions()?;
+        Ok(())
     }
 
     fn print_initial_suggestions(&self) -> Result<()> {

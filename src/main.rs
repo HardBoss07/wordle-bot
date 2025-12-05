@@ -3,7 +3,9 @@ mod filter;
 mod game;
 mod play;
 mod ranking;
+mod simulate;
 mod solver;
+mod stats;
 
 use analysis::LetterStats;
 use anyhow::Result;
@@ -11,13 +13,11 @@ use play::Play;
 use solver::Solver;
 use std::fs;
 
-// TODO: Add simulate mode which plays game to calculate average number of guesses
-
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
-        eprintln!("Usage: wordle-bot <solve|play|analyze|rank>");
+        eprintln!("Usage: wordle-bot <solve|play|simulate|analyze|rank>");
         std::process::exit(1);
     }
 
@@ -26,6 +26,17 @@ fn main() -> Result<()> {
         "rank" => rank()?,
         "solve" => solve()?,
         "play" => play()?,
+        "simulate" => {
+            if args.len() != 3 {
+                eprintln!("Usage: wordle-bot simulate <num_runs>");
+                std::process::exit(1);
+            }
+            let num_runs: usize = args[2].parse().unwrap_or_else(|_| {
+                eprintln!("Please provide a valid number for <num_runs>.");
+                std::process::exit(1);
+            });
+            simulate(num_runs)?;
+        }
         _ => {
             eprintln!("Unknown command: {}", args[1]);
             std::process::exit(1);
@@ -33,6 +44,11 @@ fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn simulate(num_runs: usize) -> Result<()> {
+    // Delegate the core logic to the new simulate module
+    simulate::run_simulation(num_runs)
 }
 
 fn play() -> Result<()> {

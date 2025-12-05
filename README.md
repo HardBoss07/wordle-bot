@@ -1,17 +1,18 @@
 # wordle-bot
 
-A command-line Rust bot for analyzing, ranking, solving, and playing Wordle puzzles.  
+A command-line Rust bot for analyzing, ranking, solving, playing, and simulating Wordle puzzles.
 It provides detailed letter statistics, ranks words based on frequency and position, simulates solver strategies, and includes an interactive game mode.
 
 With a minor self test of 50 games I averaged 4.42 guesses per game with 0 missed words. This data may not be accurate nor guarenteed.
 
 ## Features
 
-* **Analyze**: Generate letter statistics from a word list (`letter_stats.json`).
-* **Rank**: Rank words by letter frequency and positional value.
-* **Solve**: Solve Wordle puzzles using a frequency-based algorithm with adjustable weighting.
-* **Play**: Play an interactive Wordle game directly in the terminal.
-* Fully written in Rust, with a modular design (`analysis`, `ranking`, `solver`, `filter`, `game`, `play`).
+  * **Analyze**: Generate letter statistics from a word list (`letter_stats.json`).
+  * **Rank**: Rank words by letter frequency and positional value.
+  * **Solve**: Solve Wordle puzzles using a frequency-based algorithm with adjustable weighting.
+  * **Play**: Play an interactive Wordle game directly in the terminal.
+  * **Simulate**: Run bulk simulations of the solver against random target words to determine win rate, average guesses, and guess distribution.
+  * Fully written in Rust, with a modular design (`analysis`, `ranking`, `solver`, `filter`, `game`, `play`, `simulate`, `stats`).
 
 ## Installation
 
@@ -19,12 +20,12 @@ With a minor self test of 50 games I averaged 4.42 guesses per game with 0 misse
 
 ```bash
 cargo install wordle-bot
-````
+```
 
 ### From source (GitHub)
 
 ```bash
-git clone https://github.com/yourusername/wordle-bot.git
+git clone https://github.com/HardBoss07/wordle-bot.git
 cd wordle-bot
 cargo build --release
 ```
@@ -32,10 +33,10 @@ cargo build --release
 ## Usage
 
 ```bash
-wordle-bot <analyze|rank|solve|play>
+\.wordle-bot.exe <analyze|rank|solve|play|simulate>
 ```
 
-### Commands
+## Commands
 
 #### **analyze**
 
@@ -58,7 +59,7 @@ The bot selects a random word from the word list, and you have six guesses to fi
 Each guess displays feedback in a color-coded grid (e.g. green = correct position, yellow = correct letter, gray = absent).
 
 ```bash
-wordle-bot play
+\.wordle-bot.exe play
 ```
 
 Example session:
@@ -71,6 +72,24 @@ Nr.  Word
 ==========================
 
 Congratulations! You've guessed the word: STONE
+```
+
+#### **simulate**
+
+Runs a simulation of the solver for a specified number of games against random target words. The solver will automatically pick its top-ranked word for each guess.
+
+The output will include:
+
+  * Total Win Rate
+  * Average guesses needed (for games won)
+  * Guess Distribution (how many games were solved in 1, 2, 3... guesses, and how many were lost)
+
+**Usage:**
+
+```bash
+\.wordle-bot.exe simulate <num_runs>
+# Example: Run 1000 simulated games
+\.wordle-bot.exe simulate 1000
 ```
 
 ## Tweaking the Solver (`solver_config.json`)
@@ -106,15 +125,16 @@ Each entry corresponds to a turn number:
 
 To tweak solver behavior:
 
-1. Open `solver_config.json`.
-2. Adjust the numbers (they should roughly sum to 1.0, but it's not required).
-3. Run the solver again — it automatically reloads the new weights each turn.
+1.  Open `solver_config.json`.
+2.  Adjust the numbers (they should roughly sum to 1.0, but it's not required).
+3.  **Run `wordle-bot simulate <num_runs>`** to test your new configuration across many games and measure its impact on average guesses and win rate.
+4.  Run the solver again — it automatically reloads the new weights each turn.
 
 ### Tips
 
-* Increase `w_unique` for early-game exploration.
-* Increase `w_pos` and `w_overall` for late-game precision.
-* You can define more entries for longer simulations (e.g., 7th or 8th guesses).
+  * Increase `w_unique` for early-game exploration.
+  * Increase `w_pos` and `w_overall` for late-game precision.
+  * You can define more entries for longer simulations (e.g., 7th or 8th guesses).
 
 ## Project Structure
 
@@ -126,13 +146,15 @@ src/
 ├── filter.rs     # Word filtering logic
 ├── game.rs       # Game management and state
 ├── play.rs       # Interactive game mode
+├── simulate.rs   # Simulation driver loop
+├── stats.rs      # Simulation statistics collection and reporting
 └── main.rs       # CLI entry point
 ```
 
-* `wordlist.txt` : Input word list (5-letter words)
-* `letter_stats.json` : Generated letter statistics
-* `solver_config.json` : Solver weight configuration file
+  * `wordlist.txt` : Input word list (5-letter words)
+  * `letter_stats.json` : Generated letter statistics
+  * `solver_config.json` : Solver weight configuration file
 
 ## License
 
-AGPL-3.0 (see [LICENSE](LICENSE))
+AGPL-3.0 (see [LICENSE]([LICENSE](https://github.com/HardBoss07/wordle-bot/blob/main/LICENSE))) 
