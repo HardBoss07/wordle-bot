@@ -1,8 +1,7 @@
 use crate::game::{CellData, GameData, LineData};
 use anyhow::Result;
 use rand::prelude::IndexedRandom;
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::rngs::ThreadRng;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -34,7 +33,7 @@ impl Play {
 
         let allowed_words = &words[10657..];
 
-        let mut rng = thread_rng();
+        let mut rng = ThreadRng::default();
         let random_word = allowed_words
             .choose(&mut rng)
             .expect("No words available")

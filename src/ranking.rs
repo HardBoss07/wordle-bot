@@ -4,8 +4,6 @@ use serde_json;
 use std::collections::HashMap;
 
 pub fn rank_words<'a>(words: &[&'a str], stats_json: &str) -> Result<Vec<(String, f64)>> {
-    let stats: LetterStats = serde_json::from_str(stats_json)?;
-
     // === Adjustable weight parameters ===
     let w_pos = 0.2; // weight for positional frequency
     let w_overall = 0.1; // weight for overall frequency

@@ -2,7 +2,7 @@ use crate::solver::Solver;
 use crate::stats::SimulationResults;
 use anyhow::Result;
 use rand::prelude::*;
-use rand::thread_rng;
+use rand::rngs::ThreadRng;
 use std::fs;
 
 pub fn run_simulation(num_runs: usize) -> Result<()> {
@@ -13,7 +13,7 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
     let config_json = fs::read_to_string("solver_config.json")?;
 
     let mut results = SimulationResults::new();
-    let mut rng = thread_rng();
+    let mut rng = ThreadRng::default();
 
     println!("Starting simulation of {} games...", num_runs);
 
