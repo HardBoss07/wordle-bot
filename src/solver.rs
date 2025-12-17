@@ -52,7 +52,7 @@ impl Solver {
             }
 
             if word == "-r" {
-                self.reset();
+                self.reset()?;
                 println!("Solver has been reset.\n");
                 continue; // skip the rest of the loop entirely
             }

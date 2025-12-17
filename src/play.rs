@@ -225,9 +225,4 @@ impl Play {
     fn get_pattern(&self, line: &LineData) -> String {
         line.cells.iter().map(|cell| cell.state).collect()
     }
-
-    fn reset(&mut self) {
-        self.word = String::new();
-        self.game_data.reset()
-    }
 }
