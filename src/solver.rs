@@ -1,6 +1,7 @@
 use crate::filter::Filter;
 use crate::game::{CellData, GameData, LineData}; // CellData and LineData for simulation helpers
 use crate::ranking::{rank_words, weighted_rank};
+use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
 use std::collections::HashMap;
@@ -97,8 +98,7 @@ impl Solver {
             }
 
             // Update suggestions
-            let stats_json = fs::read_to_string("letter_stats.json")
-                .map_err(|e| anyhow!("Failed to read letter_stats.json: {}", e))?;
+            let stats_json = util::read_letter_stats()?;
             self.rank_words(&stats_json, true)?;
         }
 
@@ -109,7 +109,6 @@ impl Solver {
         &self,
         target_word: String,
         stats_json: &str,
-        config_json: &str,
     ) -> Result<usize> {
         let mut temp_solver = Solver {
             game: GameData::new(),
@@ -119,8 +118,7 @@ impl Solver {
         let mut guesses = 0;
         let max_guesses = 6;
 
-        let weights: Vec<(f64, f64, f64)> = serde_json::from_str(config_json)
-            .map_err(|e| anyhow!("Failed to parse solver_config.json: {}", e))?;
+        let weights = util::read_solver_config()?;
 
         while guesses < max_guesses {
             let attempt = temp_solver.game.lines.len().min(weights.len() - 1);
@@ -253,11 +251,7 @@ impl Solver {
 
     pub fn rank_words(&mut self, stats_json: &str, print_output: bool) -> Result<()> {
         // Read solver_config.json as Vec of tuples
-        let config_content = fs::read_to_string("solver_config.json")
-            .map_err(|e| anyhow!("Failed to read solver_config.json: {}", e))?;
-
-        let weights: Vec<(f64, f64, f64)> = serde_json::from_str(&config_content)
-            .map_err(|e| anyhow!("Failed to parse solver_config.json: {}", e))?;
+        let weights = util::read_solver_config()?;
 
         // Select weight set based on number of guesses
         let attempt = self.game.lines.len().min(weights.len() - 1);
@@ -314,7 +308,7 @@ impl Solver {
     fn print_initial_suggestions(&self) -> Result<()> {
         use crate::ranking::rank_words;
 
-        let stats_json = fs::read_to_string("letter_stats.json")?;
+        let stats_json = util::read_letter_stats()?;
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
         let start_results = rank_words(&word_refs, &stats_json)?;
 

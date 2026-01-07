@@ -1,9 +1,9 @@
 use crate::game::{CellData, GameData, LineData};
+use crate::util::{read_wordlist};
 use anyhow::Result;
 use rand::prelude::IndexedRandom;
 use rand::rngs::ThreadRng;
 use std::collections::HashMap;
-use std::fs;
 use std::io;
 
 pub struct Play {
@@ -22,8 +22,8 @@ pub enum GameResult {
 }
 
 impl Play {
-    pub fn new() -> Self {
-        let content = fs::read_to_string("wordlist.txt").expect("Failed to read wordlist.txt");
+    pub fn new() -> Result<Self> {
+        let content = read_wordlist()?;
 
         let words: Vec<String> = content
             .lines()
@@ -39,13 +39,13 @@ impl Play {
             .expect("No words available")
             .clone();
 
-        Self {
+        Ok(Self {
             word: random_word,
             num_guesses: 6,
             game_data: GameData::new(),
             wordlist: words,
             result: GameResult::Ongoing,
-        }
+        })
     }
 
     pub fn evaluate_word(&mut self, guessed_word: &str) -> LineData {
@@ -219,8 +219,8 @@ impl Play {
             }
             println!();
         }
-        println!("{}", self.generate_keyboard());
         println!("==========================\n");
+        println!("{}", self.generate_keyboard());
     }
 
      fn generate_keyboard(&self) -> String {

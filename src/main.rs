@@ -6,26 +6,15 @@ mod ranking;
 mod simulate;
 mod solver;
 mod stats;
+mod util;
 
 use analysis::LetterStats;
 use anyhow::Result;
 use play::Play;
 use solver::Solver;
-use std::env;
 use std::fs;
 
-fn set_cwd() {
-    let exe_dir = env::current_exe()
-        .expect("Failed to get current executable path")
-        .parent()
-        .expect("Executable has no parent directory")
-        .to_path_buf();
-
-    env::set_current_dir(&exe_dir).expect("Failed to set working directory");
-}
-
 fn main() -> Result<()> {
-    set_cwd();
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
@@ -64,7 +53,7 @@ fn simulate(num_runs: usize) -> Result<()> {
 }
 
 fn play() -> Result<()> {
-    let mut play = Play::new();
+    let mut play = Play::new()?;
     play.run()?;
 
     Ok(())
@@ -78,7 +67,7 @@ fn solve() -> Result<()> {
 }
 
 fn analyze() -> Result<()> {
-    let content = fs::read_to_string("wordlist.txt")?;
+    let content = util::read_wordlist()?;
     let words: Vec<&str> = content.lines().collect();
     let stats = LetterStats::from_words(&words);
 
@@ -101,10 +90,10 @@ fn analyze() -> Result<()> {
 
 fn rank() -> Result<()> {
     use ranking::rank_words;
-    let content = fs::read_to_string("wordlist.txt")?;
+    let content = util::read_wordlist()?;
     let words: Vec<&str> = content.lines().collect();
 
-    let stats_json = fs::read_to_string("letter_stats.json")?;
+    let stats_json = util::read_letter_stats()?;
     let results = rank_words(&words, &stats_json)?;
 
     println!("Top 10 words by letter position frequency:");
