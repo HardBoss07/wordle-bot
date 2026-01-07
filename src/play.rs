@@ -219,7 +219,59 @@ impl Play {
             }
             println!();
         }
+        println!("{}", self.generate_keyboard());
         println!("==========================\n");
+    }
+
+     fn generate_keyboard(&self) -> String {
+        let row1 = "QWERTYUIOP".chars().collect::<Vec<_>>();
+        let row2 = "ASDFGHJKL".chars().collect::<Vec<_>>();
+        let row3 = "ZXCVBNM".chars().collect::<Vec<_>>();
+
+        let mut letter_states: HashMap<char, char> = HashMap::new();
+
+        for line in &self.game_data.lines {
+            for cell in &line.cells {
+                let upper = cell.letter.to_ascii_uppercase();
+                let state = letter_states.entry(upper).or_insert(cell.state);
+
+                if *state != 'c' && cell.state == 'c' {
+                    *state = 'c';
+                } else if *state == 'w' && cell.state == 'm' {
+                    *state = 'm';
+                }
+            }
+        }
+
+        let colorize = |c: char| -> &'static str {
+            match letter_states.get(&c) {
+                Some('c') => "\x1b[42m\x1b[30m",  // green bg, black text
+                Some('m') => "\x1b[43m\x1b[30m",  // yellow bg, black text
+                Some('w') => "\x1b[100m\x1b[37m", // gray bg, white text
+                _ => "\x1b[0m",                   // default
+            }
+        };
+        
+        let mut output = String::new();
+
+        for row in &[row1, row2, row3] {
+            let indent = match row.len() {
+                10 => 0,
+                9 => 1,
+                7 => 2,
+                _ => 0,
+            };
+
+            output.push_str(&" ".repeat(indent));
+
+            for &letter in row {
+                output.push_str(&format!("{} {} \x1b[0m", colorize(letter), letter));
+            }
+            output.push('\n');
+
+        };
+
+        output
     }
 
     fn get_pattern(&self, line: &LineData) -> String {
