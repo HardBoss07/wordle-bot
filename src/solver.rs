@@ -5,7 +5,6 @@ use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
 use std::collections::HashMap;
-use std::fs;
 use std::io::{self, Write}; // Required for word evaluation in simulate
 
 pub struct Solver {
@@ -16,8 +15,8 @@ pub struct Solver {
 
 impl Solver {
     pub fn new() -> Result<Self> {
-        let content = fs::read_to_string("wordlist.txt")
-            .map_err(|e| anyhow!("Failed to read wordlist.txt: {}", e))?;
+        let content =
+            util::read_wordlist().map_err(|e| anyhow!("Failed to read wordlist.txt: {}", e))?;
 
         let words: Vec<String> = content
             .lines()
@@ -105,11 +104,7 @@ impl Solver {
         Ok(())
     }
 
-    pub fn simulate(
-        &self,
-        target_word: String,
-        stats_json: &str,
-    ) -> Result<usize> {
+    pub fn simulate(&self, target_word: String, stats_json: &str) -> Result<usize> {
         let mut temp_solver = Solver {
             game: GameData::new(),
             current_words: self.all_words.clone(),

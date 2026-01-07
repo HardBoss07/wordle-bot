@@ -1,5 +1,5 @@
 use crate::game::{CellData, GameData, LineData};
-use crate::util::{read_wordlist};
+use crate::util::read_wordlist;
 use anyhow::Result;
 use rand::prelude::IndexedRandom;
 use rand::rngs::ThreadRng;
@@ -223,7 +223,7 @@ impl Play {
         println!("{}", self.generate_keyboard());
     }
 
-     fn generate_keyboard(&self) -> String {
+    fn generate_keyboard(&self) -> String {
         let row1 = "QWERTYUIOP".chars().collect::<Vec<_>>();
         let row2 = "ASDFGHJKL".chars().collect::<Vec<_>>();
         let row3 = "ZXCVBNM".chars().collect::<Vec<_>>();
@@ -251,7 +251,7 @@ impl Play {
                 _ => "\x1b[0m",                   // default
             }
         };
-        
+
         let mut output = String::new();
 
         for row in &[row1, row2, row3] {
@@ -268,8 +268,7 @@ impl Play {
                 output.push_str(&format!("{} {} \x1b[0m", colorize(letter), letter));
             }
             output.push('\n');
-
-        };
+        }
 
         output
     }
