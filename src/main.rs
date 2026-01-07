@@ -11,9 +11,21 @@ use analysis::LetterStats;
 use anyhow::Result;
 use play::Play;
 use solver::Solver;
+use std::env;
 use std::fs;
 
+fn set_cwd() {
+    let exe_dir = env::current_exe()
+        .expect("Failed to get current executable path")
+        .parent()
+        .expect("Executable has no parent directory")
+        .to_path_buf();
+
+    env::set_current_dir(&exe_dir).expect("Failed to set working directory");
+}
+
 fn main() -> Result<()> {
+    set_cwd();
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() < 2 {
