@@ -6,6 +6,7 @@ mod ranking;
 mod simulate;
 mod solver;
 mod stats;
+mod trap;
 mod util;
 
 use analysis::LetterStats;
