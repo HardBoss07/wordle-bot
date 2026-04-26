@@ -1,32 +1,39 @@
-use anyhow::{anyhow, Ok, Result};
-use std::env;
+use anyhow::{anyhow, Result};
+use directories::ProjectDirs;
 use std::fs;
-use std::path::PathBuf;
 
-fn exe_dir() -> Result<PathBuf> {
-    let exe_path =
-        env::current_exe().map_err(|e| anyhow!("Failed to get executable path: {}", e))?;
-    let exe_dir = exe_path
-        .parent()
-        .ok_or_else(|| anyhow!("Executable has no parent directory"))?;
-    Ok(exe_dir.to_path_buf())
-}
+const WORDLIST: &str = include_str!("../wordlist.txt");
+const LETTER_STATS: &str = include_str!("../letter_stats.json");
+const DEFAULT_CONFIG: &str = include_str!("../solver_config.json");
 
 pub fn read_wordlist() -> Result<String> {
-    let path = exe_dir()?.join("wordlist.txt");
-    fs::read_to_string(&path).map_err(|e| anyhow!("Failed to read {}: {}", path.display(), e))
+    Ok(WORDLIST.to_string())
 }
 
 pub fn read_letter_stats() -> Result<String> {
-    let path = exe_dir()?.join("letter_stats.json");
-    fs::read_to_string(&path).map_err(|e| anyhow!("Failed to read {}: {}", path.display(), e))
+    Ok(LETTER_STATS.to_string())
 }
 
 pub fn read_solver_config() -> Result<Vec<(f64, f64, f64)>> {
-    let path = exe_dir()?.join("solver_config.json");
-    let content = fs::read_to_string(&path)
-        .map_err(|e| anyhow!("Failed to read {}: {}", path.display(), e))?;
+    let content = if let Some(proj_dirs) = ProjectDirs::from("", "", "wordle-bot") {
+        let config_dir = proj_dirs.config_dir();
+        let config_path = config_dir.join("solver_config.json");
+
+        if !config_path.exists() {
+            if fs::create_dir_all(config_dir).is_ok() {
+                let _ = fs::write(&config_path, DEFAULT_CONFIG);
+            }
+            DEFAULT_CONFIG.to_string()
+        } else {
+            fs::read_to_string(&config_path).unwrap_or_else(|_| DEFAULT_CONFIG.to_string())
+        }
+    } else {
+        DEFAULT_CONFIG.to_string()
+    };
+
     let weights: Vec<(f64, f64, f64)> = serde_json::from_str(&content)
-        .map_err(|e| anyhow!("Failed to parse {}: {}", path.display(), e))?;
+        .or_else(|_| serde_json::from_str(DEFAULT_CONFIG))
+        .map_err(|e| anyhow!("Failed to parse solver config: {}", e))?;
+
     Ok(weights)
 }
