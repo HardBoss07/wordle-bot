@@ -1,6 +1,7 @@
 use crate::filter::Filter;
 use crate::game::{CellData, GameData, LineData}; // CellData and LineData for simulation helpers
 use crate::ranking::{rank_words, weighted_rank};
+use crate::trap;
 use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
@@ -8,8 +9,8 @@ use std::collections::HashMap;
 use std::io::{self, Write}; // Required for word evaluation in simulate
 
 pub struct Solver {
-    game: GameData,
-    current_words: Vec<String>,
+    pub game: GameData,
+    pub current_words: Vec<String>,
     pub all_words: Vec<String>, // Made public for use in simulation
 }
 
@@ -104,53 +105,7 @@ impl Solver {
         Ok(())
     }
 
-    pub fn simulate(&self, target_word: String, stats_json: &str) -> Result<usize> {
-        let mut temp_solver = Solver {
-            game: GameData::new(),
-            current_words: self.all_words.clone(),
-            all_words: self.all_words.clone(),
-        };
-        let mut guesses = 0;
-        let max_guesses = 6;
-
-        let weights = util::read_solver_config()?;
-
-        while guesses < max_guesses {
-            let attempt = temp_solver.game.lines.len().min(weights.len() - 1);
-            let weight_tuple = weights[attempt];
-
-            let guess_word = if guesses == 0 {
-                temp_solver.get_top_suggestion_silent(stats_json, None)?
-            } else {
-                // Filter first, then use weighted ranking
-                temp_solver.current_words = temp_solver.update_wordlist();
-                temp_solver.get_top_suggestion_silent(stats_json, Some(weight_tuple))?
-            };
-
-            guesses += 1;
-
-            // Win condition check
-            if guess_word == target_word {
-                return Ok(guesses);
-            }
-
-            // Safety check: this should only happen if the filtering failed somehow.
-            if guess_word.len() != 5 || !temp_solver.all_words.contains(&guess_word) {
-                return Ok(max_guesses + 1); // Indicate failure/loss
-            }
-
-            // Evaluate the guess against the target word
-            let line = Self::evaluate_word(&guess_word, &target_word);
-            let pattern = Self::get_pattern(&line);
-
-            // Update game state
-            temp_solver.game.add_line(&guess_word, &pattern);
-        }
-
-        Ok(max_guesses + 1) // Lost
-    }
-
-    fn evaluate_word(guessed_word: &str, target_word: &str) -> LineData {
+    pub fn evaluate_word(guessed_word: &str, target_word: &str) -> LineData {
         let guessed_chars: Vec<char> = guessed_word.chars().collect();
         let target_chars: Vec<char> = target_word.chars().collect();
 
@@ -220,15 +175,22 @@ impl Solver {
         }
     }
 
-    fn get_pattern(line: &LineData) -> String {
+    pub fn get_pattern(line: &LineData) -> String {
         line.cells.iter().map(|cell| cell.state).collect()
     }
 
-    fn get_top_suggestion_silent(
+    pub fn get_top_suggestion_silent(
         &self,
         stats_json: &str,
         weights: Option<(f64, f64, f64)>,
     ) -> Result<String> {
+        // Elimination Mode check
+        if let Some(trap) = trap::detect_trap(&self.current_words) {
+            if let Some((word, _)) = trap::find_best_elimination(&self.all_words, &trap) {
+                return Ok(word);
+            }
+        }
+
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
 
         let ranked_words = if let Some(weight_tuple) = weights {
@@ -255,12 +217,28 @@ impl Solver {
         // Update wordlist (filtered)
         self.current_words = self.update_wordlist();
 
+        // Trap Detection / Elimination Mode
+        if let Some(trap) = trap::detect_trap(&self.current_words) {
+            if let Some((word, score)) = trap::find_best_elimination(&self.all_words, &trap) {
+                if print_output {
+                    println!("!!! TRAP DETECTED !!!");
+                    println!("Varying positions: {:?}", trap.varying_positions);
+                    println!("Distinguishing letters: {:?}", trap.distinguishing_letters);
+                    println!(
+                        "ELIMINATION MODE: Recommended guess is '{}' (score: {})",
+                        word, score
+                    );
+                    println!("Remaining valid words: {:?}\n", self.current_words);
+                }
+            }
+        }
+
         // Prepare for ranking
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
         let ranked_words = weighted_rank(&word_refs, stats_json, weight_tuple)?;
 
         if print_output {
-            println!("Top suggested words:");
+            println!("Top suggested words (Normal Mode):");
             for (word, score) in ranked_words.iter().take(10) {
                 println!("{word:<10} {score:.5}");
             }
