@@ -4,17 +4,16 @@ use crate::stats::SimulationResults;
 use crate::trap;
 use crate::util;
 use anyhow::Result;
+use indicatif::ParallelProgressIterator;
 use rand::prelude::*;
 use rand::rngs::ThreadRng;
+use rayon::prelude::*;
 
 pub fn run_simulation(num_runs: usize) -> Result<()> {
     let solver = Solver::new()?;
     let all_words = solver.all_words.clone();
 
     let stats_json = util::read_letter_stats()?;
-
-    let mut results = SimulationResults::new();
-    let mut rng = ThreadRng::default();
 
     println!("Starting simulation of {} games...", num_runs);
 
@@ -32,20 +31,27 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
 
     let weights = util::read_solver_config()?;
 
-    for i in 0..num_runs {
-        let target_word = target_words
-            .choose(&mut rng)
-            .expect("Target word list is empty");
+    let results = (0..num_runs)
+        .into_par_iter()
+        .progress_count(num_runs as u64)
+        .fold(SimulationResults::new, |mut local_results, _| {
+            let mut local_rng = ThreadRng::default();
+            let target_word = target_words
+                .choose(&mut local_rng)
+                .expect("Target word list is empty");
 
-        // Use custom simulation loop here to inject trap catching logic
-        let num_guesses = simulate_game(&solver, target_word.to_string(), &stats_json, &weights)?;
+            // Use custom simulation loop here to inject trap catching logic
+            let num_guesses =
+                simulate_game(&solver, target_word.to_string(), &stats_json, &weights)
+                    .expect("Simulation failed");
 
-        results.record_game(num_guesses);
-
-        if (i + 1) % 100 == 0 {
-            println!("... {} games simulated ...", i + 1);
-        }
-    }
+            local_results.record_game(num_guesses);
+            local_results
+        })
+        .reduce(SimulationResults::new, |mut a, b| {
+            a.merge(b);
+            a
+        });
 
     println!("\nSimulation finished.");
     results.print_summary();

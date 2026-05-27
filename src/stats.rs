@@ -29,6 +29,15 @@ impl SimulationResults {
         }
     }
 
+    pub fn merge(&mut self, other: SimulationResults) {
+        self.total_games += other.total_games;
+        self.wins += other.wins;
+        self.total_guesses += other.total_guesses;
+        for (guesses, count) in other.guess_distribution {
+            *self.guess_distribution.entry(guesses).or_insert(0) += count;
+        }
+    }
+
     pub fn print_summary(&self) {
         let avg_guesses = if self.wins > 0 {
             self.total_guesses as f64 / self.wins as f64
