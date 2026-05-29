@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get version from Cargo.toml
+        id: cargo_version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -n1 | cut -d '"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Validate tag matches Cargo.toml
+        shell: bash
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          if [ "$TAG" != "${{ steps.cargo_version.outputs.version }}" ]; then
+            echo "Tag version ($TAG) does not match Cargo.toml version (${{ steps.cargo_version.outputs.version }})"
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Prepare Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd target/release
+          7z a ../../wordle-bot-windows-v${{ steps.cargo_version.outputs.version }}.zip wordle-bot.exe wordlist.txt letter_stats.json solver_config.json LICENSE README.md
+
+      - name: Prepare Artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          cd target/release
+          tar -czvf ../../wordle-bot-linux-v${{ steps.cargo_version.outputs.version }}.tar.gz wordle-bot wordlist.txt letter_stats.json solver_config.json LICENSE README.md
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            wordle-bot-windows-v${{ steps.cargo_version.outputs.version }}.zip
+            wordle-bot-linux-v${{ steps.cargo_version.outputs.version }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
