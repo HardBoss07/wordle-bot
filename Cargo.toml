@@ -29,6 +29,10 @@ directories = "6.0"
 rayon = "1.10"
 indicatif = { version = "0.17", features = ["rayon"] }
 
+[build-dependencies]
+anyhow = "1.0"
+glob = "0.3"
+
 [profile.release]
 opt-level = 3
 lto = "fat"
