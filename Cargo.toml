@@ -1,13 +1,12 @@
 [package]
 name = "wordle-bot"
-version = "0.4.3"
+version = "0.5.0"
 edition = "2021"
 description = "Full CLI Implementation of the popular game Wordle with an included Solver"
 repository = "https://github.com/HardBoss07/wordle-bot"
 license = "AGPL-3.0-only"
 keywords = ["worlde", "solver", "game", "puzzle"]
 categories = ["command-line-utilities", "games"]
-readme = "README.md"
 
 include = [
     "src/**",

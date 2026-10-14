@@ -1,6 +1,7 @@
+use crate::analysis::LetterStats;
 use crate::filter::Filter;
 use crate::game::{CellData, GameData, LineData}; // CellData and LineData for simulation helpers
-use crate::ranking::{rank_words, weighted_rank};
+use crate::ranking::{weighted_rank, weighted_rank_stats};
 use crate::trap;
 use crate::util;
 use anyhow::anyhow;
@@ -179,12 +180,11 @@ impl Solver {
         line.cells.iter().map(|cell| cell.state).collect()
     }
 
-    pub fn get_top_suggestion_silent(
+    pub fn get_top_suggestion_silent_stats(
         &self,
-        stats_json: &str,
+        stats: &LetterStats,
         weights: Option<(f64, f64, f64)>,
     ) -> Result<String> {
-        // Elimination Mode check
         if let Some(trap) = trap::detect_trap(&self.current_words) {
             if let Some((word, _)) = trap::find_best_elimination(&self.all_words, &trap) {
                 return Ok(word);
@@ -192,12 +192,10 @@ impl Solver {
         }
 
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
+        let default_weights = (0.2, 0.1, 0.7);
+        let weight_tuple = weights.unwrap_or(default_weights);
 
-        let ranked_words = if let Some(weight_tuple) = weights {
-            weighted_rank(&word_refs, stats_json, weight_tuple)?
-        } else {
-            rank_words(&word_refs, stats_json)?
-        };
+        let ranked_words = weighted_rank_stats(&word_refs, stats, weight_tuple);
 
         ranked_words
             .into_iter()

@@ -1,3 +1,4 @@
+use crate::analysis::LetterStats;
 use crate::game::GameData;
 use crate::solver::Solver;
 use crate::stats::SimulationResults;
@@ -17,8 +18,13 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
     let all_words = solver.all_words.clone();
 
     let stats_json = util::read_letter_stats()?;
+    let stats: LetterStats = serde_json::from_str(&stats_json)?;
+
+    // Precompute the opening guess once for all simulations
+    let first_guess = solver.get_top_suggestion_silent_stats(&stats, None)?;
 
     println!("Starting simulation of {} games...", num_runs);
+    println!("Opening guess precomputed: '{}'", first_guess);
 
     let target_words = if all_words.len() > ANSWER_WORD_INDEX {
         &all_words[ANSWER_WORD_INDEX..]
@@ -43,10 +49,14 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
                 .choose(&mut local_rng)
                 .expect("Target word list is empty");
 
-            // Use custom simulation loop here to inject trap catching logic
-            let num_guesses =
-                simulate_game(&solver, target_word.to_string(), &stats_json, &weights)
-                    .expect("Simulation failed");
+            let num_guesses = simulate_game(
+                &solver,
+                target_word.to_string(),
+                &first_guess,
+                &stats,
+                &weights,
+            )
+            .expect("Simulation failed");
 
             local_results.record_game(num_guesses);
             local_results
@@ -73,8 +83,9 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
 fn simulate_game(
     solver: &Solver,
     target_word: String,
-    stats_json: &str,
-    weights: &Vec<(f64, f64, f64)>,
+    first_guess: &str,
+    stats: &LetterStats,
+    weights: &[(f64, f64, f64)],
 ) -> Result<usize> {
     let mut temp_solver = Solver {
         game: GameData::new(),
@@ -89,22 +100,20 @@ fn simulate_game(
         let weight_tuple = weights[attempt];
 
         let guess_word = if guesses == 0 {
-            temp_solver.get_top_suggestion_silent(stats_json, None)?
+            first_guess.to_string()
         } else {
-            // Update wordlist first
             temp_solver.current_words = temp_solver.update_wordlist();
 
-            // TRAP CATCHING LOGIC
             if let Some(trap) = trap::detect_trap(&temp_solver.current_words) {
                 if let Some((elim_word, _)) =
                     trap::find_best_elimination(&temp_solver.all_words, &trap)
                 {
                     elim_word
                 } else {
-                    temp_solver.get_top_suggestion_silent(stats_json, Some(weight_tuple))?
+                    temp_solver.get_top_suggestion_silent_stats(stats, Some(weight_tuple))?
                 }
             } else {
-                temp_solver.get_top_suggestion_silent(stats_json, Some(weight_tuple))?
+                temp_solver.get_top_suggestion_silent_stats(stats, Some(weight_tuple))?
             }
         };
 
@@ -114,7 +123,6 @@ fn simulate_game(
             return Ok(guesses);
         }
 
-        // Evaluate and update
         let line = Solver::evaluate_word(&guess_word, &target_word);
         let pattern = Solver::get_pattern(&line);
         temp_solver.game.add_line(&guess_word, &pattern);
