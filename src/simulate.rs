@@ -8,8 +8,11 @@ use indicatif::ParallelProgressIterator;
 use rand::prelude::*;
 use rand::rngs::ThreadRng;
 use rayon::prelude::*;
+use std::time::Instant;
 
 pub fn run_simulation(num_runs: usize) -> Result<()> {
+    let start_time = Instant::now();
+
     let solver = Solver::new()?;
     let all_words = solver.all_words.clone();
 
@@ -53,8 +56,16 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
             a
         });
 
+    let elapsed = start_time.elapsed();
+
     println!("\nSimulation finished.");
     results.print_summary();
+
+    if elapsed.as_secs_f64() >= 1.0 {
+        println!("Execution time: {:.3}s", elapsed.as_secs_f64());
+    } else {
+        println!("Execution time: {}ms", elapsed.as_millis());
+    }
 
     Ok(())
 }
