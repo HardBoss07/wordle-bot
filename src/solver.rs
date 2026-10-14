@@ -1,18 +1,17 @@
 use crate::analysis::LetterStats;
 use crate::filter::Filter;
-use crate::game::{CellData, GameData, LineData}; // CellData and LineData for simulation helpers
+use crate::game::GameData;
 use crate::ranking::{weighted_rank, weighted_rank_stats};
 use crate::trap;
 use crate::util;
 use anyhow::anyhow;
 use anyhow::Result;
-use std::collections::HashMap;
-use std::io::{self, Write}; // Required for word evaluation in simulate
+use std::io::{self, Write};
 
 pub struct Solver {
     pub game: GameData,
     pub current_words: Vec<String>,
-    pub all_words: Vec<String>, // Made public for use in simulation
+    pub all_words: Vec<String>,
 }
 
 impl Solver {
@@ -32,8 +31,8 @@ impl Solver {
 
         Ok(Self {
             game: GameData::new(),
-            current_words: words.clone(), // filtered, may shrink during filtering
-            all_words: words,             // full list stays available for checking
+            current_words: words.clone(),
+            all_words: words,
         })
     }
 
@@ -41,7 +40,6 @@ impl Solver {
         self.print_initial_suggestions()?;
 
         loop {
-            // Step 1: enter word
             print!("Enter your 5-letter guess (or 'exit'): ");
             io::stdout().flush()?;
             let mut word = String::new();
@@ -56,7 +54,7 @@ impl Solver {
             if word == "-r" {
                 self.reset()?;
                 println!("Solver has been reset.\n");
-                continue; // skip the rest of the loop entirely
+                continue;
             }
 
             if word.len() != 5 {
@@ -64,13 +62,11 @@ impl Solver {
                 continue;
             }
 
-            // Check if guess exists in wordlist (uses preloaded all_words)
             if !self.all_words.contains(&word) {
                 println!("'{}' is not in the wordlist.\n", word);
                 continue;
             }
 
-            // Step 2: enter pattern
             print!("Enter pattern (w = wrong, m = misplaced, c = correct): ");
             io::stdout().flush()?;
             let mut pattern = String::new();
@@ -82,13 +78,9 @@ impl Solver {
                 continue;
             }
 
-            // Update game
             self.game.add_line(&word, &pattern);
-
-            // Show summary
             self.game.print_summary();
 
-            // Break if Game Won
             if self.is_game_won() {
                 let word = self.get_solved_word().unwrap();
                 println!(
@@ -98,7 +90,6 @@ impl Solver {
                 break;
             }
 
-            // Update suggestions
             let stats_json = util::read_letter_stats()?;
             self.rank_words(&stats_json, true)?;
         }
@@ -106,78 +97,35 @@ impl Solver {
         Ok(())
     }
 
-    pub fn evaluate_word(guessed_word: &str, target_word: &str) -> LineData {
-        let guessed_chars: Vec<char> = guessed_word.chars().collect();
-        let target_chars: Vec<char> = target_word.chars().collect();
+    pub fn evaluate_pattern(guessed_word: &str, target_word: &str) -> u8 {
+        let guess = guessed_word.as_bytes();
+        let target = target_word.as_bytes();
 
-        let mut result_cells: [CellData; 5] = [
-            CellData {
-                letter: ' ',
-                state: 'w',
-            },
-            CellData {
-                letter: ' ',
-                state: 'w',
-            },
-            CellData {
-                letter: ' ',
-                state: 'w',
-            },
-            CellData {
-                letter: ' ',
-                state: 'w',
-            },
-            CellData {
-                letter: ' ',
-                state: 'w',
-            },
-        ];
+        let mut states = [0u8; 5]; // 0 = 'w', 1 = 'm', 2 = 'c'
+        let mut remaining = [0u8; 26];
 
-        let mut remaining_counts: HashMap<char, usize> = HashMap::new();
-        for &c in &target_chars {
-            *remaining_counts.entry(c).or_insert(0) += 1;
+        for &b in target {
+            remaining[(b - b'a') as usize] += 1;
         }
 
         for i in 0..5 {
-            let g = guessed_chars[i];
-            let t = target_chars[i];
-
-            if g == t {
-                result_cells[i] = CellData {
-                    letter: g,
-                    state: 'c',
-                };
-                *remaining_counts.get_mut(&g).unwrap() -= 1;
-            } else {
-                result_cells[i].letter = g;
+            if guess[i] == target[i] {
+                states[i] = 2;
+                remaining[(guess[i] - b'a') as usize] -= 1;
             }
         }
 
         for i in 0..5 {
-            if result_cells[i].state == 'c' {
-                continue;
-            }
-            let g = guessed_chars[i];
-            if let Some(count) = remaining_counts.get_mut(&g) {
-                if *count > 0 {
-                    result_cells[i].state = 'm';
-                    *count -= 1;
-                } else {
-                    result_cells[i].state = 'w';
+            if states[i] == 0 {
+                let idx = (guess[i] - b'a') as usize;
+                if remaining[idx] > 0 {
+                    states[i] = 1;
+                    remaining[idx] -= 1;
                 }
-            } else {
-                result_cells[i].state = 'w';
             }
         }
 
-        LineData {
-            word: guessed_word.to_string(),
-            cells: result_cells,
-        }
-    }
-
-    pub fn get_pattern(line: &LineData) -> String {
-        line.cells.iter().map(|cell| cell.state).collect()
+        states[0] + states[1] * 3 + states[2] * 9 + states[3] * 27 + states[4] * 81
     }
 
     pub fn get_top_suggestion_silent_stats(
@@ -185,13 +133,14 @@ impl Solver {
         stats: &LetterStats,
         weights: Option<(f64, f64, f64)>,
     ) -> Result<String> {
-        if let Some(trap) = trap::detect_trap(&self.current_words) {
+        let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
+
+        if let Some(trap) = trap::detect_trap(&word_refs) {
             if let Some((word, _)) = trap::find_best_elimination(&self.all_words, &trap) {
                 return Ok(word);
             }
         }
 
-        let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
         let default_weights = (0.2, 0.1, 0.7);
         let weight_tuple = weights.unwrap_or(default_weights);
 
@@ -205,17 +154,12 @@ impl Solver {
     }
 
     pub fn rank_words(&mut self, stats_json: &str, print_output: bool) -> Result<()> {
-        // Read solver_config.json as Vec of tuples
         let weights = util::read_solver_config()?;
-
-        // Select weight set based on number of guesses
         let attempt = self.game.lines.len().min(weights.len() - 1);
         let weight_tuple = weights[attempt];
 
-        // Update wordlist (filtered)
         self.current_words = self.update_wordlist();
 
-        // Trap Detection / Elimination Mode
         if let Some(trap) = trap::detect_trap(&self.current_words) {
             if let Some((word, score)) = trap::find_best_elimination(&self.all_words, &trap) {
                 if print_output {
@@ -231,7 +175,6 @@ impl Solver {
             }
         }
 
-        // Prepare for ranking
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
         let ranked_words = weighted_rank(&word_refs, stats_json, weight_tuple)?;
 
@@ -247,8 +190,13 @@ impl Solver {
     }
 
     pub fn update_wordlist(&self) -> Vec<String> {
-        let filter = Filter::new(&self.game, &self.current_words);
-        filter.filter_words()
+        let refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
+        let filter = Filter::new(&self.game, &refs);
+        filter
+            .filter_words()
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect()
     }
 
     fn is_game_won(&self) -> bool {

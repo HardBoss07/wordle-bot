@@ -1,5 +1,7 @@
 use crate::analysis::LetterStats;
+use crate::filter::Filter;
 use crate::game::GameData;
+use crate::ranking::weighted_rank_stats;
 use crate::solver::Solver;
 use crate::stats::SimulationResults;
 use crate::trap;
@@ -16,12 +18,17 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
 
     let solver = Solver::new()?;
     let all_words = solver.all_words.clone();
+    let all_word_refs: Vec<&str> = all_words.iter().map(|s| s.as_str()).collect();
 
     let stats_json = util::read_letter_stats()?;
     let stats: LetterStats = serde_json::from_str(&stats_json)?;
 
-    // Precompute the opening guess once for all simulations
-    let first_guess = solver.get_top_suggestion_silent_stats(&stats, None)?;
+    let first_guess_str = solver.get_top_suggestion_silent_stats(&stats, None)?;
+    let first_guess: &str = all_word_refs
+        .iter()
+        .find(|&&w| w == first_guess_str)
+        .copied()
+        .unwrap_or(all_word_refs[0]);
 
     println!("Starting simulation of {} games...", num_runs);
     println!("Opening guess precomputed: '{}'", first_guess);
@@ -50,9 +57,10 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
                 .expect("Target word list is empty");
 
             let num_guesses = simulate_game(
-                &solver,
-                target_word.to_string(),
-                &first_guess,
+                &all_words,
+                &all_word_refs,
+                target_word,
+                first_guess,
                 &stats,
                 &weights,
             )
@@ -80,40 +88,65 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
     Ok(())
 }
 
-fn simulate_game(
-    solver: &Solver,
-    target_word: String,
-    first_guess: &str,
+fn simulate_game<'a>(
+    all_words: &'a [String],
+    all_word_refs: &[&'a str],
+    target_word: &str,
+    first_guess: &'a str,
     stats: &LetterStats,
     weights: &[(f64, f64, f64)],
 ) -> Result<usize> {
-    let mut temp_solver = Solver {
-        game: GameData::new(),
-        current_words: solver.all_words.clone(),
-        all_words: solver.all_words.clone(),
-    };
+    let mut game = GameData::new();
+    let mut current_words: Vec<&'a str> = all_word_refs.to_vec();
     let mut guesses = 0;
     let max_guesses = 6;
 
     while guesses < max_guesses {
-        let attempt = temp_solver.game.lines.len().min(weights.len() - 1);
+        let attempt = game.lines.len().min(weights.len() - 1);
         let weight_tuple = weights[attempt];
 
-        let guess_word = if guesses == 0 {
-            first_guess.to_string()
+        let guess_word: &'a str = if guesses == 0 {
+            first_guess
         } else {
-            temp_solver.current_words = temp_solver.update_wordlist();
+            let filter = Filter::new(&game, &current_words);
+            current_words = filter.filter_words();
 
-            if let Some(trap) = trap::detect_trap(&temp_solver.current_words) {
-                if let Some((elim_word, _)) =
-                    trap::find_best_elimination(&temp_solver.all_words, &trap)
-                {
-                    elim_word
+            if current_words.is_empty() {
+                return Ok(max_guesses + 1);
+            }
+
+            if let Some(trap) = trap::detect_trap(&current_words) {
+                if let Some((elim_word, _)) = trap::find_best_elimination(all_words, &trap) {
+                    all_word_refs
+                        .iter()
+                        .find(|&&w| w == elim_word)
+                        .copied()
+                        .unwrap_or(current_words[0])
                 } else {
-                    temp_solver.get_top_suggestion_silent_stats(stats, Some(weight_tuple))?
+                    let ranked = weighted_rank_stats(&current_words, stats, weight_tuple);
+                    if ranked.is_empty() {
+                        current_words[0]
+                    } else {
+                        let top_word = &ranked[0].0;
+                        all_word_refs
+                            .iter()
+                            .find(|&&w| w == top_word)
+                            .copied()
+                            .unwrap_or(current_words[0])
+                    }
                 }
             } else {
-                temp_solver.get_top_suggestion_silent_stats(stats, Some(weight_tuple))?
+                let ranked = weighted_rank_stats(&current_words, stats, weight_tuple);
+                if ranked.is_empty() {
+                    current_words[0]
+                } else {
+                    let top_word = &ranked[0].0;
+                    all_word_refs
+                        .iter()
+                        .find(|&&w| w == top_word)
+                        .copied()
+                        .unwrap_or(current_words[0])
+                }
             }
         };
 
@@ -123,9 +156,8 @@ fn simulate_game(
             return Ok(guesses);
         }
 
-        let line = Solver::evaluate_word(&guess_word, &target_word);
-        let pattern = Solver::get_pattern(&line);
-        temp_solver.game.add_line(&guess_word, &pattern);
+        let pattern_code = Solver::evaluate_pattern(guess_word, target_word);
+        game.add_line_code(guess_word, pattern_code);
     }
 
     Ok(max_guesses + 1)

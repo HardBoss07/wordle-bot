@@ -5,7 +5,7 @@ pub struct TrapInfo {
     pub varying_positions: Vec<usize>,
 }
 
-pub fn detect_trap(words: &[String]) -> Option<TrapInfo> {
+pub fn detect_trap<S: AsRef<str>>(words: &[S]) -> Option<TrapInfo> {
     if words.len() < 3 || words.len() > 10 {
         return None;
     }
@@ -17,7 +17,7 @@ pub fn detect_trap(words: &[String]) -> Option<TrapInfo> {
     for i in 0..5 {
         let mut unique_chars = HashSet::new();
         for word in words {
-            if let Some(c) = word.chars().nth(i) {
+            if let Some(c) = word.as_ref().chars().nth(i) {
                 unique_chars.insert(c);
             }
         }
@@ -32,7 +32,6 @@ pub fn detect_trap(words: &[String]) -> Option<TrapInfo> {
         }
     }
 
-    // Trigger if we share at least 3 positions
     if identical_count >= 3 {
         Some(TrapInfo {
             distinguishing_letters,
@@ -54,10 +53,18 @@ pub fn score_elimination_word(word: &str, trap: &TrapInfo) -> usize {
     score
 }
 
-pub fn find_best_elimination(all_words: &[String], trap: &TrapInfo) -> Option<(String, usize)> {
+pub fn find_best_elimination<S: AsRef<str>>(
+    all_words: &[S],
+    trap: &TrapInfo,
+) -> Option<(String, usize)> {
     all_words
         .iter()
-        .map(|w| (w.clone(), score_elimination_word(w, trap)))
+        .map(|w| {
+            (
+                w.as_ref().to_string(),
+                score_elimination_word(w.as_ref(), trap),
+            )
+        })
         .max_by_key(|&(_, score)| score)
         .filter(|&(_, score)| score > 0)
 }

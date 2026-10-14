@@ -1,17 +1,16 @@
 use crate::game::GameData;
 
-pub struct Filter<'a> {
-    game: &'a GameData,
-    words: &'a [String],
+pub struct Filter<'g, 'w, 's> {
+    game: &'g GameData,
+    words: &'w [&'s str],
 }
 
-impl<'a> Filter<'a> {
-    pub fn new(game: &'a GameData, words: &'a [String]) -> Self {
+impl<'g, 'w, 's> Filter<'g, 'w, 's> {
+    pub fn new(game: &'g GameData, words: &'w [&'s str]) -> Self {
         Self { game, words }
     }
 
-    pub fn filter_words(&self) -> Vec<String> {
-        // Build bitmask of required letters ('a'..='z')
+    pub fn filter_words(&self) -> Vec<&'s str> {
         let mut must_contain_mask = 0u32;
         for &ch in &self.game.must_contain {
             if ch.is_ascii_lowercase() {
@@ -19,7 +18,6 @@ impl<'a> Filter<'a> {
             }
         }
 
-        // Build array for correct position bytes
         let mut correct = [0u8; 5];
         for (i, opt) in self.game.correct_positions.iter().enumerate() {
             if let Some(ch) = opt {
@@ -27,7 +25,6 @@ impl<'a> Filter<'a> {
             }
         }
 
-        // Build misplaced lookup table: misplaced_at[pos] bitmask of disallowed bytes
         let mut misplaced_at = [0u32; 5];
         for (&pos, letters) in &self.game.misplaced_letters {
             if pos < 5 {
@@ -39,7 +36,6 @@ impl<'a> Filter<'a> {
             }
         }
 
-        // Build bitmask of forbidden letters (in contains_not but NOT in must_contain)
         let mut forbidden_mask = 0u32;
         for &ch in &self.game.contains_not {
             if ch.is_ascii_lowercase() && !self.game.must_contain.contains(&ch) {
@@ -49,6 +45,7 @@ impl<'a> Filter<'a> {
 
         self.words
             .iter()
+            .copied()
             .filter(|word| {
                 let bytes = word.as_bytes();
                 if bytes.len() != 5 {
@@ -83,7 +80,6 @@ impl<'a> Filter<'a> {
 
                 true
             })
-            .cloned()
             .collect()
     }
 }

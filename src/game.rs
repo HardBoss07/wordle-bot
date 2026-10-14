@@ -64,6 +64,45 @@ impl GameData {
         });
     }
 
+    pub fn add_line_code(&mut self, word: &str, mut pattern_code: u8) {
+        let bytes = word.as_bytes();
+        let cells = std::array::from_fn(|i| {
+            let ch = bytes[i] as char;
+            let state_val = pattern_code % 3;
+            pattern_code /= 3;
+
+            let state = match state_val {
+                2 => 'c',
+                1 => 'm',
+                _ => 'w',
+            };
+
+            match state_val {
+                2 => {
+                    self.correct_positions[i] = Some(ch);
+                    self.must_contain.insert(ch);
+                }
+                1 => {
+                    self.misplaced_letters.entry(i).or_default().insert(ch);
+                    self.must_contain.insert(ch);
+                }
+                0 => {
+                    if !self.must_contain.contains(&ch) {
+                        self.contains_not.insert(ch);
+                    }
+                }
+                _ => {}
+            }
+
+            CellData { letter: ch, state }
+        });
+
+        self.lines.push(LineData {
+            word: word.to_string(),
+            cells,
+        });
+    }
+
     pub fn print_summary(&self) {
         println!("\n=== Current Game State ===");
         println!("Guesses: {}", self.lines.len());
@@ -90,8 +129,6 @@ impl GameData {
         self.must_contain.clear();
     }
 }
-
-// Formatting helper functions
 
 fn fmt_hashset(set: &HashSet<char>) -> String {
     set.iter()
