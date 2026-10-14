@@ -1,5 +1,5 @@
 use crate::game::{CellData, GameData, LineData};
-use crate::util::read_wordlist;
+use crate::util::{read_wordlist, ANSWER_WORD_INDEX};
 use anyhow::Result;
 use rand::prelude::IndexedRandom;
 use rand::rngs::ThreadRng;
@@ -31,7 +31,7 @@ impl Play {
             .filter(|w| w.len() == 5)
             .collect();
 
-        let allowed_words = &words[10657..];
+        let allowed_words = &words[ANSWER_WORD_INDEX..];
 
         let mut rng = ThreadRng::default();
         let random_word = allowed_words

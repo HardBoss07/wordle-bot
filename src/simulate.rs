@@ -2,7 +2,7 @@ use crate::game::GameData;
 use crate::solver::Solver;
 use crate::stats::SimulationResults;
 use crate::trap;
-use crate::util;
+use crate::util::{self, ANSWER_WORD_INDEX};
 use anyhow::Result;
 use indicatif::ParallelProgressIterator;
 use rand::prelude::*;
@@ -17,8 +17,8 @@ pub fn run_simulation(num_runs: usize) -> Result<()> {
 
     println!("Starting simulation of {} games...", num_runs);
 
-    let target_words = if all_words.len() > 10657 {
-        &all_words[10657..]
+    let target_words = if all_words.len() > ANSWER_WORD_INDEX {
+        &all_words[ANSWER_WORD_INDEX..]
     } else {
         &all_words[..]
     };

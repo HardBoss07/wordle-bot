@@ -1,6 +1,6 @@
 [package]
 name = "wordle-bot"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 description = "Full CLI Implementation of the popular game Wordle with an included Solver"
 repository = "https://github.com/HardBoss07/wordle-bot"

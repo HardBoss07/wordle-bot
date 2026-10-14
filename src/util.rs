@@ -5,6 +5,7 @@ use std::fs;
 const WORDLIST: &str = include_str!("../wordlist.txt");
 const LETTER_STATS: &str = include_str!("../letter_stats.json");
 const DEFAULT_CONFIG: &str = include_str!("../solver_config.json");
+pub const ANSWER_WORD_INDEX: usize = 10657;
 
 pub fn read_wordlist() -> Result<String> {
     Ok(WORDLIST.to_string())
