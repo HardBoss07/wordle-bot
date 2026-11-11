@@ -136,7 +136,8 @@ impl Solver {
         let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
 
         if let Some(trap) = trap::detect_trap(&word_refs) {
-            if let Some((word, _)) = trap::find_best_elimination(&self.all_words, &trap) {
+            if let Some((word, _)) = trap::find_best_elimination(&self.all_words, &trap, &word_refs)
+            {
                 return Ok(word);
             }
         }
@@ -159,9 +160,12 @@ impl Solver {
         let weight_tuple = weights[attempt];
 
         self.current_words = self.update_wordlist();
+        let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
 
         if let Some(trap) = trap::detect_trap(&self.current_words) {
-            if let Some((word, score)) = trap::find_best_elimination(&self.all_words, &trap) {
+            if let Some((word, score)) =
+                trap::find_best_elimination(&self.all_words, &trap, &word_refs)
+            {
                 if print_output {
                     println!("!!! TRAP DETECTED !!!");
                     println!("Varying positions: {:?}", trap.varying_positions);
@@ -175,7 +179,6 @@ impl Solver {
             }
         }
 
-        let word_refs: Vec<&str> = self.current_words.iter().map(|s| s.as_str()).collect();
         let ranked_words = weighted_rank(&word_refs, stats_json, weight_tuple)?;
 
         if print_output {

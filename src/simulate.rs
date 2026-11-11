@@ -11,6 +11,7 @@ use indicatif::ParallelProgressIterator;
 use rand::prelude::*;
 use rand::rngs::ThreadRng;
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::time::Instant;
 
 pub fn run_simulation(num_runs: usize) -> Result<()> {
@@ -115,38 +116,48 @@ fn simulate_game<'a>(
                 return Ok(max_guesses + 1);
             }
 
-            if let Some(trap) = trap::detect_trap(&current_words) {
-                if let Some((elim_word, _)) = trap::find_best_elimination(all_words, &trap) {
+            let guesses_remaining = max_guesses - guesses;
+
+            if current_words.len() <= guesses_remaining {
+                pick_ranked_or_fallback(&current_words, all_word_refs, stats, weight_tuple)
+            } else if let Some(trap) = trap::detect_trap(&current_words) {
+                if let Some((elim_word, _)) =
+                    trap::find_best_elimination(all_words, &trap, &current_words)
+                {
                     all_word_refs
                         .iter()
                         .find(|&&w| w == elim_word)
                         .copied()
                         .unwrap_or(current_words[0])
                 } else {
-                    let ranked = weighted_rank_stats(&current_words, stats, weight_tuple);
-                    if ranked.is_empty() {
-                        current_words[0]
-                    } else {
-                        let top_word = &ranked[0].0;
-                        all_word_refs
-                            .iter()
-                            .find(|&&w| w == top_word)
-                            .copied()
-                            .unwrap_or(current_words[0])
+                    pick_ranked_or_fallback(&current_words, all_word_refs, stats, weight_tuple)
+                }
+            } else if guesses >= 3 && current_words.len() >= 4 {
+                // PANIC PROBE: On guess 4+ with 4+ words left, force an elimination guess across all_words
+                let mut distinguishing_letters = HashSet::new();
+                for w in &current_words {
+                    for ch in w.chars() {
+                        distinguishing_letters.insert(ch);
                     }
                 }
-            } else {
-                let ranked = weighted_rank_stats(&current_words, stats, weight_tuple);
-                if ranked.is_empty() {
-                    current_words[0]
-                } else {
-                    let top_word = &ranked[0].0;
+                let dummy_trap = trap::TrapInfo {
+                    distinguishing_letters,
+                    varying_positions: vec![],
+                };
+
+                if let Some((elim_word, _)) =
+                    trap::find_best_elimination(all_words, &dummy_trap, &current_words)
+                {
                     all_word_refs
                         .iter()
-                        .find(|&&w| w == top_word)
+                        .find(|&&w| w == elim_word)
                         .copied()
                         .unwrap_or(current_words[0])
+                } else {
+                    pick_ranked_or_fallback(&current_words, all_word_refs, stats, weight_tuple)
                 }
+            } else {
+                pick_ranked_or_fallback(&current_words, all_word_refs, stats, weight_tuple)
             }
         };
 
@@ -161,4 +172,23 @@ fn simulate_game<'a>(
     }
 
     Ok(max_guesses + 1)
+}
+
+fn pick_ranked_or_fallback<'a>(
+    current_words: &[&'a str],
+    all_word_refs: &[&'a str],
+    stats: &LetterStats,
+    weight_tuple: (f64, f64, f64),
+) -> &'a str {
+    let ranked = weighted_rank_stats(current_words, stats, weight_tuple);
+    if ranked.is_empty() {
+        current_words[0]
+    } else {
+        let top_word = &ranked[0].0;
+        all_word_refs
+            .iter()
+            .find(|&&w| w == top_word)
+            .copied()
+            .unwrap_or(current_words[0])
+    }
 }

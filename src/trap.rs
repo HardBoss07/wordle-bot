@@ -6,7 +6,7 @@ pub struct TrapInfo {
 }
 
 pub fn detect_trap<S: AsRef<str>>(words: &[S]) -> Option<TrapInfo> {
-    if words.len() < 3 || words.len() > 10 {
+    if words.len() < 3 || words.len() > 12 {
         return None;
     }
 
@@ -32,7 +32,7 @@ pub fn detect_trap<S: AsRef<str>>(words: &[S]) -> Option<TrapInfo> {
         }
     }
 
-    if identical_count >= 3 {
+    if identical_count >= 2 {
         Some(TrapInfo {
             distinguishing_letters,
             varying_positions,
@@ -42,27 +42,37 @@ pub fn detect_trap<S: AsRef<str>>(words: &[S]) -> Option<TrapInfo> {
     }
 }
 
-pub fn score_elimination_word(word: &str, trap: &TrapInfo) -> usize {
+pub fn score_elimination_word<S: AsRef<str>>(
+    word: &str,
+    trap: &TrapInfo,
+    current_words: &[S],
+) -> usize {
     let word_chars: HashSet<char> = word.chars().collect();
     let mut score = 0;
+
     for &c in &trap.distinguishing_letters {
         if word_chars.contains(&c) {
-            score += 1;
+            let count = current_words
+                .iter()
+                .filter(|w| w.as_ref().contains(c))
+                .count();
+            score += count;
         }
     }
     score
 }
 
-pub fn find_best_elimination<S: AsRef<str>>(
+pub fn find_best_elimination<S: AsRef<str>, C: AsRef<str>>(
     all_words: &[S],
     trap: &TrapInfo,
+    current_words: &[C],
 ) -> Option<(String, usize)> {
     all_words
         .iter()
         .map(|w| {
             (
                 w.as_ref().to_string(),
-                score_elimination_word(w.as_ref(), trap),
+                score_elimination_word(w.as_ref(), trap, current_words),
             )
         })
         .max_by_key(|&(_, score)| score)
